@@ -1,0 +1,1195 @@
+#+title: consult.el - Consulting completing-read
+#+author: Daniel Mendler
+#+language: en
+#+export_file_name: consult.texi
+#+texinfo_dir_category: Emacs misc features
+#+texinfo_dir_title: Consult: (consult).
+#+texinfo_dir_desc: Useful commands built on completing-read.
+
+#+html: <a href="https://www.gnu.org/software/emacs/"><img alt="GNU Emacs" src="https://github.com/minad/corfu/blob/screenshots/emacs.svg?raw=true"/></a>
+#+html: <a href="https://elpa.gnu.org/packages/consult.html"><img alt="GNU ELPA" src="https://elpa.gnu.org/packages/consult.svg"/></a>
+#+html: <a href="https://elpa.gnu.org/devel/consult.html"><img alt="GNU-devel ELPA" src="https://elpa.gnu.org/devel/consult.svg"/></a>
+#+html: <a href="https://melpa.org/#/consult"><img alt="MELPA" src="https://melpa.org/packages/consult-badge.svg"/></a>
+#+html: <a href="https://stable.melpa.org/#/consult"><img alt="MELPA Stable" src="https://stable.melpa.org/packages/consult-badge.svg"/></a>
+
+Consult 提供基于 Emacs 补全函数的搜索和导航命令，这些命令基于 [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Minibuffer-Completion.html][completing-read]] 函数，该函数在 [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Completion.html][Elisp 手册]] 中有文档说明。补全功能允许你从候选列表中快速选择项目。Consult 提供异步和交互式的 =consult-grep= 和 =consult-ripgrep= 命令，以及基于行的搜索命令 =consult-line= 。此外，Consult 还提供高级的缓冲区切换命令 =consult-buffer= ，用于在缓冲区、最近打开的文件、书签和来自其他源的类似缓冲区的候选者之间切换。一些 Consult 命令是内置 Emacs 命令的增强版本。例如，命令 =consult-imenu= 以平面列表形式展示 Imenu，支持 [[#live-previews][实时预览]] 和 [[#narrowing-and-grouping][分组和缩小]] 。请查看 [[#available-commands][完整的命令列表]] 。
+
+Consult 补全功能与标准 Emacs =completing-read= API、 [[https://github.com/minad/vertico][Vertico]] 、 [[https://github.com/protesilaos/mct][Mct]] 以及内置默认补全系统及 Icomplete 的补全系统完全兼容。
+
+此包将补全系统的细节保持在最小规模。Consult 命令能够与任意补全系统形成良好的协作的能力亦是此包的主要优势之一。Consult 与已有配置置很好地适配，它帮助你将小而独立的组件组成一套完整的补全环境。
+
+你可以将 [[https://github.com/minad/marginalia][Marginalia]] 、 [[https://github.com/oantolin/embark][Embark]] 和 [[https://github.com/oantolin/orderless][Orderless]] 与 Consult 结合使用。Marginalia 帮助显示丰富注释示，例如文档字符串或文件信息。多功能的 Embark 包帮助提供本地行为，类似于上下文菜单。这些动作对 minibuffer 中选中的候选列表或在常规缓冲区中光标位置操作。例如，当从文件列表中选择时，Embark 提供删除文件的动作。此外，Embark 还提供在收集缓冲区中收集完成候选者的功能。 [[#embark-integration][Embark 集成]] 部分详细说明了 Consult 和 Embark 如何协同工作。
+
+#+toc: headlines 8
+
+* Screenshots :noexport:
+
+#+caption: consult-grep
+[[https://github.com/minad/consult/blob/screenshots/consult-grep.gif?raw=true]]
+图 1: 命令 =consult-git-grep=
+
+#+caption: consult-imenu
+[[https://github.com/minad/consult/blob/screenshots/consult-imenu.png?raw=true]]
+图 2: 命令 =consult-imenu=
+
+#+caption: consult-line
+[[https://github.com/minad/consult/blob/screenshots/consult-line.png?raw=true]]
+图 3: 命令 =consult-line=
+
+* Available commands
+:properties:
+:CUSTOM_ID: available-commands 
+:description: Navigation, search, editing commands and more
+:end:
+#+cindex: commands
+
+大部分 Consult 命令都遵循有意义的命名规则 =consult-<thing>= 。很多命令实现了一个鲜为人知但很方便的 Emacs 功能，叫做 “future history”，它会猜测用户想要输入什么。在命令提示符下输入 =M-n= ，通常 Consult 就会把光标处的符号或东西插入到输入中。
+
+*提示：* 如果你启用 [[https://github.com/minad/marginalia][Marginalia]] ，输入 =M-x ^consult= 就可以看到所有 Consult 命令及其简要描述。或者，输入 =C-h a ^consult= 就可以概览所有 Consult 变量和函数及其描述。
+
+** 虚拟缓冲区
+:properties:
+:description: Buffers, bookmarks and recent files
+:end:
+#+cindex: virtual buffers
+
+#+findex: consult-buffer
+#+findex: consult-buffer-other-window
+#+findex: consult-buffer-other-frame
+#+findex: consult-buffer-other-tab
+#+findex: consult-project-buffer
+#+findex: consult-recent-file
+#+findex: consult-bookmark
+- =consult-buffer=: 通过提供虚拟缓冲区来增强 =switch-to-buffer= 。它支持缓冲区的实时预览，并且可以缩小到虚拟缓冲区输入。你可以输入 =f SPC= 来查看最近使用的文件。按 =SPC= 可以显示临时缓冲区。支持的缩小键：
+  - b 缓冲区
+  - SPC 隐藏缓冲区
+  - * 已修改缓冲区
+  - o 来自其他窗口/标签页的缓冲区
+  - f 文件 (需要 =recentf-mode=)
+  - r 文件和缓冲区寄存器
+  - m 书签
+  - p 项目
+  - B 项目缓冲区
+  - F 项目文件
+  - R 项目根目录
+  - 自定义 [[#multiple-sources][其他源]] 配置在 =consult-buffer-sources= 中。
+
+  默认情况下，会考虑所有窗口的缓冲区。哪些缓冲区被考虑在内可以通过变量 =consult-buffer-list-function= 自定义。按 =o SPC= 可以获得其他缓冲区。
+
+- =consult-buffer-other-window=, =consult-buffer-other-frame=, =consult-buffer-other-tab=: =consult-buffer= 的变体。
+- =consult-project-buffer=: =consult-buffer= 的变体，仅限于当前项目的缓冲区和最近文件。你可以向 =consult-project-buffer-sources= 添加自定义源。如果你从项目外调用该命令，它可能会提示你选择项目。
+- =consult-bookmark=: 选择或创建书签。要选择书签，你也可以使用 =consult-buffer= ，它可以包含书签虚拟缓冲区源。注意 =consult-bookmark= 支持书签预览和缩小。
+- =consult-recent-file=: 从最近文件中选择并预览。
+  你可能更喜欢功能强大的 =consult-buffer= ，它可以将最近文件作为虚拟缓冲区
+  源包含进去。 =recentf-mode= 启用最近文件的跟踪。
+
+** 编辑
+:properties:
+:description: Commands useful for editing
+:end:
+#+cindex: editing
+
+#+findex: consult-yank-pop
+#+findex: consult-yank-from-kill-ring
+#+findex: consult-yank-replace
+#+findex: consult-kmacro
+
+- =consult-yank-from-kill-ring=: =yank= 的增强版本，可以从 =kill-ring= 中选择项目。选中的文本在缓冲区中作为覆盖层预览。
+- =consult-yank-pop=: =yank-pop= 的增强版本，具有 DWIM 行为，要么通过遍历 =kill-ring= 替换最后一次 =yank= ，要么如果没有上一次的 =yank= 则查询 =kill-ring= 。选中的文本在缓冲区中作为覆盖层预览。
+- =consult-yank-replace=: 类似 =consult-yank-pop= ，但总是用 =kill-ring= 中的项目替换最后一次 =yank=。
+- =consult-kmacro=: 从宏环中选择宏并执行它。
+
+** 寄存器
+:properties:
+:description: Searching through registers and fast access
+:end:
+#+cindex: register
+
+#+findex: consult-register
+#+findex: consult-register-load
+#+findex: consult-register-store
+#+findex: consult-register-format
+#+findex: consult-register-window
+
+- =consult-register=: 从寄存器列表中选择。该命令支持缩小到寄存器类型和标记位置预览。这个命令对于搜索寄存器内容很有用。要快速访问，请使用命令 =consult-register-load=、=consult-register-store= 或内置的 Emacs 寄存器命令。
+- =consult-register-format=: 将 =register-preview-function= 设置为该函数以获得增强的寄存器格式。由 =consult-register-window= 自动使用。
+- =consult-register-window=: 用该函数替换 =register-preview= 以获得更好的寄存器窗口。请参阅 [[#use-package-example][示例配置]]。
+- =consult-register-load=: 快速加载寄存器的实用命令。该命令要么跳转到寄存器值，要么插入它。
+- =consult-register-store=: 根据当前上下文改进的存储寄存器 UI，带有动作菜单。使用活动区域时，存储/追加/前置内容，如果给出前缀参数则可选删除区域。使用数字前缀参数时，存储/添加数字。否则存储点、文件、缓冲区、框架集、
+  窗口或宏。用法示例：
+  * =M-' x=: 如果没有活动区域，将点存储在寄存器 =x= 中。
+    如果有活动区域，将区域存储在寄存器 =x= 中。
+  * =M-' M-w x=: 将窗口配置存储在寄存器 =x= 中。
+  * =C-u 100 M-' x=: 将数字存储在寄存器 =x= 中。
+
+** 导航
+:properties:
+:description: Mark rings, outlines and imenu
+:end:
+#+cindex: navigation
+
+#+findex: consult-goto-line
+#+findex: consult-mark
+#+findex: consult-global-mark
+#+findex: consult-outline
+#+findex: consult-imenu
+#+findex: consult-imenu-multi
+
+- =consult-goto-line=: 跳转到行号，增强实时预览。这是 =goto-line= 的直接替代品。
+  输入行号跳转到给定行的第一列。或者输入 =line:column= 以跳转到特定列。
+- =consult-mark=: 跳转到 =mark-ring= 中的标记。支持实时预览和递归编辑。
+- =consult-global-mark=: 跳转到 =global-mark-ring= 中的标记。
+  支持实时预览和递归编辑。
+- =consult-outline=: 跳转到大纲标题。支持缩小到标题级别、实时预览和递归编辑。
+- =consult-imenu=: 跳转到当前缓冲区中的 imenu 项目。支持
+  实时预览、递归编辑和缩小。
+- =consult-imenu-multi=: 跳转到项目缓冲区中的 imenu 项目，具有与当前缓冲区
+  相同的主模式。支持实时预览、递归编辑和缩小。此功能受到
+  [[https://github.com/vspinu/imenu-anywhere][imenu-anywhere]] 的启发。
+
+** 搜索
+:properties:
+:description: Line search, grep and file search
+:end:
+#+cindex: search
+
+#+findex: consult-line
+#+findex: consult-line-multi
+#+findex: consult-keep-lines
+#+findex: consult-focus-lines
+- =consult-line=: 输入搜索字符串并从匹配的线条中选择。
+  支持实时预览和递归编辑。点处的符号和最近的 Isearch 字符串被添加到
+  "未来历史"，可以通过按 =M-n= 访问。当 =consult= 绑定到 =isearch-mode-map= 并在
+  运行的 Isearch 期间调用时，它将使用当前的 Isearch 字符串。
+- =consult-line-multi=: 跨多个缓冲区动态搜索。默认情况下
+  跨项目缓冲区搜索。如果使用前缀参数调用，则跨所有缓冲区搜索。
+  候选者基于输入按需计算。该命令的行为类似 =consult-grep=，但对缓冲区而不是文件操作。
+- =consult-keep-lines=: =keep/flush-lines= 的替代品，它使用当前
+  完成样式来过滤缓冲区。该函数在输入时更新缓冲区。特别是 =consult-keep-lines=
+  可以进一步缩小导出的 Embark 收集缓冲区，依赖于与 ~completing-read~ 相同的完成过滤。
+  如果输入以否定操作符开头，即 ~! SPC~，则过滤器匹配补集。如果有活动区域，
+  则区域限制过滤。
+- =consult-focus-lines=: 通过使用当前完成样式过滤来临时隐藏线条。
+  使用 =C-u= 前缀参数调用以再次显示隐藏的线条。如果输入以否定操作符开头，
+  即 ~! SPC~ ，则过滤器匹配补集。与 =consult-keep-lines= 不同的是，此
+  函数不编辑缓冲区。如果有活动区域，则区域限制过滤。
+
+** Grep 和查找
+:properties:
+:description: Searching through the filesystem
+:end:
+#+cindex: grep
+#+cindex: find
+#+cindex: locate
+
+#+findex: consult-grep-match
+#+findex: consult-grep
+#+findex: consult-ripgrep
+#+findex: consult-git-grep
+#+findex: consult-find
+#+findex: consult-fd
+#+findex: consult-locate
+- =consult-grep-match=: 跳转到相关 Grep 缓冲区中的 Grep 匹配项。支持
+  实时预览缩小和递归编辑。
+- =consult-grep=, =consult-ripgrep=, =consult-git-grep=: 在文件中搜索正则表达式。
+  Consult 异步调用 Grep，同时你输入搜索术语。至少 =consult-async-min-input=
+  个字符后，搜索开始。Consult 将输入字符串分成两部分，如果第一个
+  字符是标点字符，如 =#= 。例如 =#regexps#filter-string= 在第二个 =#= 处拆分。
+  字符串 =regexps= 传递给 Grep。注意 Consult 将 Emacs 正则表达式转换为搜索
+  程序能理解表达式。在提示符处始终使用 Emacs 正则表达式。如果你输入多个
+  用空格分隔的正则表达式，则只显示匹配所有正则表达式的行。要字面匹配空格，
+  用反斜杠转义空格。 =filter-string= 传递给 /fast/ Emacs 过滤以进一步缩小匹配列表。
+  如果你使用像 orderless 这样的高级完成样式，这特别有用。=consult-grep= 支持预览。
+  =consult-grep= 搜索当前 [[#project-support][项目目录]] 如果找到项目。否则搜索
+  =default-directory= 。如果使用前缀参数 =C-u M-s g= 调用 =consult-grep= ，你可以
+  手动指定一个或多个逗号分隔的文件和目录。如果使用两个前缀参数 =C-u C-u M-s g=
+  调用，你可以首先选择项目如果你还没有在项目中。
+- =consult-find=, =consult-fd=, =consult-locate=: 通过将路径与正则表达式匹配来查找文件。
+  对于 =consult-grep=，要么项目根目录要么当前目录是搜索的根目录。输入字符串
+  的处理方式类似于 =consult-grep= ，第一部分传递给 find，第二部分用于 Emacs 过滤。
+  =consult-find= 的前缀参数的工作方式与 consult grep 命令相同。
+
+** 编译
+:properties:
+:description: Jumping to references and compilation errors
+:end:
+#+cindex: compilation errors
+
+#+findex: consult-compile-error
+#+findex: consult-flymake
+#+findex: consult-xref
+- =consult-compile-error=: 跳转到相关编译缓冲区中的编译错误。支持
+  实时预览缩小和递归编辑。
+- =consult-flymake=: 跳转到 Flymake 诊断。支持实时预览和
+  递归编辑。该命令支持缩小。按 =e SPC=、=w SPC=、=n SPC= 分别仅显示错误、警告和注释。
+- =consult-xref=: 与 xref 集成。此函数可以设置为
+  =xref-show-xrefs-function= 和 =xref-show-definitions-function=。
+
+** 历史
+:properties:
+:description: Navigating histories
+:end:
+#+cindex: history
+
+#+findex: consult-complex-command
+#+findex: consult-history
+#+findex: consult-isearch-history
+- =consult-complex-command=: 从 =command-history= 中选择命令。此命令是
+  =repeat-complex-command= 的 =completing-read= 版本，也是 chistory.el 中
+  =command-history= 命令的替代品。
+- =consult-history=: 从当前缓冲区历史中插入字符串，例如
+  Eshell 或 Comint 历史。你也可以从迷你缓冲区调用此命令。在这种情况下
+  =consult-history= 使用存储在 =minibuffer-history-variable= 中的历史。如果你喜欢
+  =completion-at-point=，请看看 [[https://github.com/minad/cape][Cape]] 包中的 =cape-history=。
+- =consult-isearch-history=: 在 Isearch 会话期间，此命令从历史中选择
+  搜索字符串并使用新选择的字符串继续搜索。在 Isearch 之外，该命令允许你
+  从历史中选择字符串并开始新的 Isearch。=consult-isearch-history= 作为
+  =isearch-edit-string= 的直接替代品。
+
+** 模式
+:properties:
+:description: Toggling minor modes and executing commands
+:end:
+#+cindex: minor mode
+#+cindex: major mode
+
+#+findex: consult-minor-mode-menu
+#+findex: consult-mode-command
+- =consult-minor-mode-menu=: 启用/禁用次要模式。支持通过按 =i/o/l/g SPC=
+  分别缩小到开/关/本地/全局模式。
+- =consult-mode-command=: 运行当前活动次要或主要模式中的命令。支持通过键 =l/g/m=
+  缩小到本地次要/全局次要/主要模式。
+
+** Org 模式
+:properties:
+:description: Org-specific commands
+:end:
+
+#+findex: consult-org-heading
+#+findex: consult-org-agenda
+- =consult-org-heading=: =consult-imenu= 或 =consult-outline= 的变体，适用于 Org
+  缓冲区。标题及其祖先标题用斜杠分隔。支持按标题级别、优先级和 TODO 关键字缩小，
+  以及实时预览和递归编辑。
+- =consult-org-agenda=: 跳转到 Org 日程标题。支持按
+  标题级别、优先级和 TODO 关键字缩小，以及实时预览和递归编辑。
+
+** 帮助
+:properties:
+:description: Searching through help
+:end:
+
+#+findex: consult-info
+#+findex: consult-info-define
+#+findex: consult-man
+- =consult-man=: 查找 Unix 手册页，通过 Unix =apropos= 或 =man -k=。=consult-man= 使用
+  Emacs =man= 命令打开选中的手册页。在浏览候选者时支持主题的实时预览。
+- =consult-info=: 跨 info 页面的全文搜索。如果从 ~*info*~ 缓冲区内调用该命令，
+  它将搜索当前手册。你可能想要创建自己的 =consult-info-*= 命令，搜索预定义的
+  info 页面集合。你可以使用函数 =consult-info-define= 来定义命令 =consult-info-emacs=、
+  =consult-info-completion=、=consult-info-org= 等：
+#+begin_src emacs-lisp
+(consult-info-define "emacs" "efaq" "elisp" "cl" "compat" "eshell")
+(consult-info-define 'completion
+                     "vertico" "consult" "marginalia" "orderless"
+                     "embark" "corfu" "cape" "tempel")
+(consult-info-define "org")
+(consult-info-define "gnus")
+(consult-info-define "magit")
+#+end_src
+
+** 其他
+:properties:
+:description: Various other useful commands
+:end:
+
+#+findex: consult-completion-in-region
+#+findex: consult-theme
+- =consult-theme=: 选择主题并禁用所有当前启用的主题。
+  在浏览候选者时支持主题的实时预览。
+- =consult-completion-in-region=: 如果你不使用 [[https://github.com/minad/corfu][Corfu]] 作为你的缓冲区内
+  完成 UI，此函数可以设置为 =completion-in-region-function=。然后你的迷你缓冲区
+  完成 UI（例如 Vertico 或 Icomplete）将用于 =completion-at-point=。
+
+  #+begin_src emacs-lisp
+  (setq completion-in-region-function #'consult-completion-in-region)
+  #+end_src
+
+  代替 =consult-completion-in-region= ，你可能更喜欢直接在缓冲区中看到完成作为小弹窗。
+  在这种情况下，我推荐 [[https://github.com/minad/corfu][Corfu]] 包。 =consult-completion-in-region= 与
+  Lsp 模式结合存在技术限制。Lsp 服务器依赖于光标处的输入，以生成精炼的候选字符串。
+  由于完成从原始缓冲区转移到迷你缓冲区，服务器不会收到更新的输入。相比之下，
+  例如通过 Corfu 的缓冲区内 Lsp 正常工作，因为完成直接在原始缓冲区中进行。
+
+* 特殊功能
+:properties:
+:description: Enhancements over built-in `completing-read'
+:end:
+
+Consult 增强了 =completing-read= ，包括候选者的实时预览、对候选者组的额外
+缩小功能和异步生成的候选者列表。内部 =consult--read= 函数被大多数
+Consult 命令使用，它提供这些增强功能。
+
+** 实时预览
+:properties:
+:CUSTOM_ID: live-previews
+:description: Live previews of candidates
+:end:
+#+cindex: live preview
+
+许多 Consult 命令支持实时预览功能。当你在候选项上移动光标时，相关缓冲区会
+自动更新显示候选项的上下文信息。例如 =consult-line= 在浏览候选项时，缓冲区会
+滚动到相应位置。你可以在搜索过程中在迷你缓冲区和普通缓冲区之间来回跳转，
+执行递归编辑。
+
+Consult 默认启用预览。你可以通过调整 =consult-preview-key= 变量来禁用它们。此外，
+还可以指定手动触发预览的键绑定，如 [[#use-package-example][示例配置]] 中所示。=consult-preview-key= 的默认设置是
+=any= ，这意味着当选中的候选项发生变化时，Consult 会在 /任何/ 按键上 /立即/ 触发预览。
+你可以使用自己的 =:preview-key= 单独配置每个命令。以下设置是可能的：
+
+- 自动且立即 ='any=
+- 自动且延迟 =(list :debounce 0.5 'any)=
+- 手动且立即 ="M-."=
+- 手动且延迟 =(list :debounce 0.5 "M-.")=
+- 禁用 =nil=
+
+一个安全的建议是，一般情况下启用自动立即预览，仅对因文件加载而可能导致预览
+开销较大的命令禁用自动预览。在内部，Consult 使用 =this-command= 的值来确定
+自定义的 =:preview-key= 。这意味着如果你将 =consult-*= 命令包装在自己的函数或命令中，
+你还需要将 /你的自定义命令/ 的名称添加到 =consult-customize= 调用中，以便它被考虑在内。
+
+#+begin_src emacs-lisp
+(consult-customize
+ consult-ripgrep consult-git-grep consult-grep consult-man
+ consult-bookmark consult-recent-file consult-xref
+ consult-source-bookmark consult-source-file-register
+ consult-source-recent-file consult-source-project-recent-file
+ ;; my/command-wrapping-consult    ;; 在我的命令中禁用自动预览
+ :preview-key '(:debounce 0.4 any) ;; 选项 1：延迟预览
+ ;; :preview-key "M-.")            ;; 选项 2：手动预览
+#+end_src
+
+在这种情况下，你可能想知道在当前候选项上使用 Embark 动作与手动触发预览之间的区别。
+主要区别在于，手动预览打开的文件会在完成会话后再次关闭。在预览过程中，某些功能会被禁用
+以提高性能，例如自定义变量 =consult-preview-variables= 和 =consult-preview-allowed-hooks=。
+只有列在 =consult-preview-allowed-hooks= 中的钩子才会被执行。此变量适用于
+=find-file-hook=、=change-major-mode-hook= 和模式钩子，例如 =prog-mode-hook=。要在预览期间
+启用额外的字体锁定，请将相应的钩子添加到允许列表中。以下代码演示了对 [[https://github.com/minad/org-modern][org-modern]] 和
+[[https://github.com/tarsius/hl-todo][hl-todo]] 的设置：
+
+#+begin_src emacs-lisp
+;; 添加到 prog-mode 钩子的本地模式
+(add-to-list 'consult-preview-allowed-hooks 'hl-todo-mode)
+(add-to-list 'consult-preview-allowed-hooks 'elide-head-mode)
+;; 启用的全局模式
+(add-to-list 'consult-preview-allowed-hooks 'global-org-modern-mode)
+(add-to-list 'consult-preview-allowed-hooks 'global-hl-todo-mode)
+#+end_src
+
+大于 =consult-preview-partial-size= 的文件会被部分预览。延迟预览对于 =consult-theme= 也很有用，
+因为主题预览速度较慢。延迟会带来更流畅的 UI 体验。
+
+#+begin_src emacs-lisp
+;; 在任何按键上预览，但延迟 0.5 秒
+(consult-customize consult-theme :preview-key '(:debounce 0.5 any))
+;; 在 M-. 上立即预览，在上下键上延迟 0.5 秒，在任何其他键上延迟 1 秒
+(consult-customize consult-theme
+                   :preview-key
+                   '("M-."
+                     :debounce 0.5 "<up>" "<down>"
+                     :debounce 1 any))
+#+end_src
+
+** 缩小和分组
+:properties:
+:CUSTOM_ID: narrowing-and-grouping
+:description: Narrowing and grouping
+:end:
+#+cindex: narrowing
+#+cindex: grouping
+
+Consult 对候选组有特殊支持。如果完成 UI 支持分组功能，UI 会用细线分隔组并显示组标题。
+如果候选列表包含多种类型的候选者或来自 [[#multiple-sources][多个来源]] 的候选者，分组很有用，例如
+=consult-buffer= 命令，它同时显示缓冲区和最近打开的文件。注意，你可以通过使用
+=consult-customize= 宏将相应命令的 =:group= 属性设置为 nil 来禁用组标题。
+
+通过输入缩小前缀或按缩小键，可以将完成候选者限制为特定的候选组。当你使用
+=consult-buffer= 命令时，你可以输入前缀 =b SPC= 来将候选列表限制为仅缓冲区。
+如果你之后按 =DEL=，将再次显示完整的候选列表。此外，可以配置缩小前缀键和扩大键，
+按下这些键可以达到相同的效果，请参阅配置变量 =consult-narrow-key= 和 =consult-widen-key=。
+
+按下 =consult-narrow-key= 后，可以通过按 =C-h= 来显示可能的缩小键。当你在某个前缀键后按
+=C-h= 时，会调用 =prefix-help-command=，默认情况下会显示键绑定帮助窗口。作为更紧凑的替代方案，
+有 =consult-narrow-help= 命令，可以将其绑定到一个键，例如 =?= 或 =consult-narrow-map= 中的 =C-h=，
+如 [[#use-package-example][示例配置]] 中所示。如果安装了 [[https://github.com/justbur/emacs-which-key][which-key]]，按下 =consult-narrow-key= 后，缩小键会自动显示在
+which-key 窗口中。
+
+** 异步搜索
+:properties:
+:description: 异步生成候选列表的过滤
+:end:
+#+cindex: asynchronous search
+
+Consult 支持异步生成候选列表。此功能用于 =consult-grep= 等搜索命令，其中匹配列表在用户输入正则表达式时动态生成。grep 进程在后台执行。修改正则表达式时，后台进程会终止，并使用修改后的正则表达式启动一个新进程。
+
+找到的匹配项可以使用已安装的 Emacs 补全样式进行缩小范围。如果你使用例如 =orderless= 补全样式，这会非常强大。
+
+通过分割输入字符串，可以实现这种两级过滤。输入字符串的一部分被视为 grep 的输入，另一部分用于过滤。在 ~consult-async-split-styles-alist~ 中配置了多种分割样式：=nil=、=comma=、=semicolon= 和 =perl=。默认分割样式通过变量 ~consult-async-split-style~ 配置。
+
+使用 =comma= 和 =semicolon= 分割样式时，逗号或分号之前的第一个词传递给 grep，其余字符串用于过滤。=nil= 分割样式不执行任何分割，整个输入传递给 grep。
+
+=perl= 分割样式使用与 Perl 正则表达式类似的语法，在标点字符处分割输入字符串。
+
+示例：
+
+- =#defun= ：使用 grep 搜索 "defun"。
+- =#consult embark= ：使用 grep 以任意顺序搜索 "consult" 和 "embark"。
+- =#first.*second= ：使用 grep 搜索 "first" 后跟 "second"。
+- =#\(consult\|embark\)= ：使用 grep 搜索 "consult" 或 "embark"。注意使用 Emacs 风格的正则表达式。
+- =#defun#consult= ：使用 grep 搜索 "defun"，并使用 "consult" 进行过滤。
+- =/defun/consult= ：也可以使用其他标点字符。
+- =#to#=：强制使用 grep 搜索 "to"，因为 grep 模式默认必须长于 =consult-async-min-input= 个字符。
+- =#defun -- --invert-match#=：将参数 =--invert-match= 传递给 grep。
+
+=find= 和 =grep= 等异步进程会创建一个错误日志缓冲区 =_*consult-async*=（注意前导空格），这对故障排除很有用。提示符有一个小指示器显示进程状态：
+
+- =:= 通常的提示冒号，在提供输入之前。
+- =*= 带有警告面孔，表示进程正在运行。
+- =:= 带有成功面孔，表示成功，进程以零错误代码退出。
+- =!= 带有错误面孔，表示失败，进程以非零错误代码退出。
+- =;= 带有错误面孔，表示中断，例如如果提供了更多输入。
+
+** 多源支持
+:properties:
+:description: 合并来自不同来源的候选者
+:custom_id: multiple-sources
+:end:
+#+cindex: multiple sources
+
+可以组合多个静态和异步候选源。=consult-buffer= 命令使用此功能在单个菜单中呈现类似缓冲区的候选者，以便快速访问。默认情况下，=consult-buffer= 包含缓冲区、书签、最近打开的文件以及特定于项目的缓冲区和文件。=consult-buffer-sources= 变量配置源列表。可以将任意自定义源添加到此列表中。
+
+例如，书签源定义如下：
+
+#+begin_src emacs-lisp
+(defvar consult-source-bookmark
+  `(:name     "Bookmark"
+    :narrow   ?m
+    :category bookmark
+    :face     consult-bookmark
+    :history  bookmark-history
+    :items    ,#'bookmark-all-names
+    :action   ,#'consult--bookmark-action))
+#+end_src
+
+源必须包含 =:items= 或 =:async= 字段之一：
+- =:items= 要选择的字符串列表或返回字符串列表的函数。字符串可以携带文本属性中的元数据，然后 =:annotate=、=:action= 和 =:state= 函数可以使用这些元数据。列表也可以由对组成，其中 =car= 中的字符串用于显示，=cdr= 是实际的候选者。
+- =:async= =:items= 的替代方案，用于异步源。有关详细信息，请参阅文档字符串。
+
+可选的源字段：
+- =:name= 源的名称，用于缩小范围、组标题和注释。
+- =:narrow= 缩小字符、=(char . string)= 对或对列表。
+- =:category= 完成类别。
+- =:preview-key= 触发预览的预览键或键。
+- =:enabled= 必须返回 t 才能启用源的函数。
+- =:hidden= 当为 t 时，默认隐藏此源的候选者。
+- =:face= 用于高亮显示候选者的面孔。
+- =:annotate= 为每个候选者调用的注释函数，返回字符串。
+- =:history= 添加所选候选者的历史变量名称。
+- =:default= 如果源的第一项是默认值，则必须为 t。
+- =:action= 使用所选候选者调用的函数。
+- =:new= 当 =:require-match= 为 nil 时，使用新候选者名称调用的函数。
+- =:state= 源的状态构造函数，必须返回状态函数。
+- 可以根据用例专门添加其他源字段。
+
+源的 =:state= 和 =:action= 字段需要更详细的解释。=:action= 函数接受单个参数，只有在选择后且选择未被中止时，才会使用所选候选者调用。此功能是为了方便和轻松定义源而提供的。=:state= 字段更通用。=:state= 函数是一个无参数的构造函数，可以执行预览所需的一些设置。它必须返回一个闭包，该闭包接受 ACTION 和 CANDIDATE 参数。有关 ACTION 参数的更多详细信息，请参阅 =consult--with-preview= 的文档字符串。
+
+默认情况下，=consult-buffer= 会预览缓冲区、书签和文件。加载最近的文件或书签可能会导致昂贵的操作。但是，可以按如下方式配置手动预览：
+
+#+begin_src emacs-lisp
+(consult-customize
+ consult-source-bookmark consult-source-file-register
+ consult-source-recent-file consult-source-project-recent-file
+ :preview-key "M-.")
+#+end_src
+
+为了方便起见，可以将源直接添加到 =consult-buffer-source= 列表中。例如，以下源列出了所有 Org 缓冲区并允许您创建新缓冲区：
+
+#+begin_src emacs-lisp
+(defvar org-source
+  (list :name     "Org Buffer"
+        :category 'buffer
+        :narrow   ?o
+        :face     'consult-buffer
+        :history  'buffer-name-history
+        :state    #'consult--buffer-state
+        :new
+        (lambda (name)
+          (with-current-buffer (get-buffer-create name)
+            (insert "#+title: " name "\n\n")
+            (org-mode)
+            (consult--buffer-action (current-buffer))))
+        :items
+        (lambda ()
+          (consult--buffer-query :mode 'org-mode :as #'consult--buffer-pair))))
+
+(add-to-list 'consult-buffer-sources 'org-source 'append)
+#+end_src
+
+可以为其他主要模式创建类似的源。请参阅 [[https://github.com/minad/consult/wiki][Consult wiki]] 了解更多源示例。
+另请参阅 =consult-buffer= 的文档和内部 =consult--multi= API 的文档。函数 =consult--multi= 可用于创建新的多源命令。
+
+** 未来历史
+:properties:
+:description: Future history
+:end:
+#+cindex: future history
+
+许多 Consult 命令实现了 Emacs 的"未来历史"功能。将来历史尝试根据当前上下文
+猜测用户可能想要的输入。在点处的符号和之前的搜索字符串被自动添加到完成历史中。
+
+你可以通过按 =M-n= 访问未来历史条目。
+
+** 项目支持
+:properties:
+:description: Project support
+:custom_id: project-support
+:end:
+#+cindex: project
+
+像 =consult-grep= 这样的多个 Consult 搜索命令会尝试发现当前项目，如果找到项目，则默认在项目顶层目录中搜索。否则，它们会回退到 =default-directory=。默认情况下，Consult 使用 Emacs 内置的项目发现支持（=project-current= 和 =project-root=）。可以通过自定义变量 =consult-project-function= 配置替代方法。
+
+#+begin_src emacs-lisp
+;; 可选地配置不同的项目根目录函数。
+;; 1. project.el（默认）
+(setq consult-project-function #'consult--default-project--function)
+;; 2. vc.el（vc-root-dir）
+(setq consult-project-function (lambda (_) (vc-root-dir)))
+;; 3. locate-dominating-file
+(setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
+;; 4. projectile.el（projectile-project-root）
+(autoload 'projectile-project-root "projectile")
+(setq consult-project-function (lambda (_) (projectile-project-root)))
+;; 5. 禁用项目支持
+(setq consult-project-function nil)
+#+end_src
+
+** 单个命令的微调
+:properties:
+:alt_title: 微调
+:description: Fine-grained configuration for special requirements
+:end:
+
+*注意:* Consult 支持对单个命令进行细粒度的自定义。此配置功能面向有特殊需求的有经验用户。在 [[https://github.com/minad/consult/wiki][Consult wiki]] 上，我们收集了更多配置示例。
+
+命令和缓冲区源允许通过使用 =consult-customize= 宏进行灵活的、个性化的自定义。你可以覆盖传递给内部 =consult--read= API 的任何选项。注意，由于 =consult--read= 是内部 API 的一部分，选项可能在包的未来版本中被移除、替换或重命名。
+
+有用的选项有：
+- =:prompt= 设置提示字符串
+- =:preview-key= 设置预览键，默认为 =consult-preview-key=
+- =:initial= 设置初始输入
+- =:initial-narrow= 设置初始缩小键
+- =:default= 设置默认值
+- =:history= 设置历史变量符号
+- =:add-history= 添加项目到未来历史，例如光标处的符号
+- =:sort= 启用或禁用排序
+- =:group= 设置为 nil 以禁用候选者分组和标题。
+- =:inherit-input-method= 设置为非 nil 以继承输入方法。
+
+#+begin_src emacs-lisp
+(consult-customize
+ ;; 完全禁用 `consult-theme' 的预览。
+ consult-theme :preview-key nil
+ ;; 为 `consult-buffer' 设置预览键为 `M-.'
+ consult-buffer :preview-key "M-."
+ ;; 对于 `consult-line'，更改提示并指定多个预览键绑定。
+ ;; 注意，你应该在 `minibuffer-local-completion-map' 或 `vertico-map' 中将 <S-up> 和 <S-down> 
+ ;; 绑定到选择前一个或下一个候选者的命令。
+ consult-line :prompt "Search: "
+ :preview-key '("S-<down>" "S-<up>"))
+#+end_src
+
+配置值在运行时评估，就在完成会话开始之前。因此，你可以使用例如 =thing-at-point= 来调整初始输入或未来历史。
+
+#+begin_src emacs-lisp
+(consult-customize
+ consult-line
+ :add-history (seq-some #'thing-at-point '(region symbol)))
+
+(defalias 'consult-line-thing-at-point 'consult-line)
+
+(consult-customize
+ consult-line-thing-at-point
+ :initial (thing-at-point 'symbol))
+#+end_src
+
+通常可以通过以下技术为个人需求修改命令：
+
+1. 使用 =consult-customize= 更改命令或源设置。
+2. 创建自己的包装函数，将修改的参数传递给 Consult 函数。
+3. 为 =consult-buffer= 创建自己的缓冲区 [[#multiple-sources][多源]]。
+4. 创建建议来修改某些内部行为。
+5. 编写或提议补丁。
+
+有关更多配置示例，请参阅 [[https://github.com/minad/consult/wiki][Consult wiki]]。
+
+** Embark 集成
+:properties:
+:description: Actions, Grep/Occur-buffer export
+:custom_id: embark-integration
+:end:
+#+cindex: embark
+
+*注意*: 请从 MELPA 安装 =embark-consult= 包，它提供 Consult 特定的 Embark 动作和 Occur 缓冲区导出功能。
+
+Embark 是一个多功能包，提供上下文相关的动作，类似于上下文菜单。有关其功能的详细描述，请参阅 [[https://github.com/oantolin/embark][Embark 手册]]。
+
+动作是可以对当前选定的候选者（或 Embark 术语中的目标）进行操作的命令。例如，在完成文件时，会提供 =delete-file= 命令。使用 Embark，你可以通过 =M-x= 对当前选定的候选者执行任意命令。
+
+此外，Embark 提供 =embark-collect= 命令，该命令收集候选者并将它们呈现在 Embark 收集缓冲区中，可以对它们应用进一步的动作。相关功能是 =embark-export= 命令，它将候选者列表导出到特殊类型的缓冲区。例如，在文件完成的情况下，会打开一个 Dired 缓冲区。
+
+在 Consult 的上下文中，特别令人兴奋的是可以从 =consult-line=、=consult-outline=、=consult-mark= 和 =consult-global-mark= 导出匹配行。匹配的行被导出到 Occur 缓冲区，在那里可以通过 =occur-edit-mode=（按 =e= 键）进行编辑。类似地，Embark 支持将 =consult-grep=、=consult-ripgrep= 和 =consult-git-grep= 找到的匹配项导出到 Grep 缓冲区，在那里可以通过 Emacs 31 上的 =grep-edit-mode=（或通过 [[https://github.com/mhayashi1120/Emacs-wgrep][wgrep]] 包）编辑跨文件的匹配项。这三个工作流程是对称的：
+
++ =consult-line= -> =embark-export= 到 =occur-mode= 缓冲区 -> =occur-edit-mode= 编辑匹配项。
++ =consult-grep= -> =embark-export= 到 =grep-mode= 缓冲区 -> =grep-edit-mode= 编辑匹配项。
++ =consult-find= -> =embark-export= 到 =dired-mode= 缓冲区 -> =wdired-change-to-wdired-mode= 编辑。
+
+** 默认完成 UI 与自动更新
+
+我推荐使用 Vertico 以获得最佳性能和直观的 UI。
+尽管如此，默认完成缓冲区 UI 在较新的 Emacs 版本中运行良好，支持
+自动更新。我建议在 Emacs 31 上使用以下配置：
+
+#+begin_src emacs-lisp
+(setq
+ ;; One column view with annotations
+ completions-format 'one-column
+ completions-detailed t
+ completions-group t
+ ;; Sort candidates by history position
+ completions-sort 'historical
+ ;; Allow navigating from the minibuffer
+ minibuffer-visible-completions t
+ ;; Show completions eagerly and update automatically
+ completion-eager-update t
+ completion-eager-display t
+ ;; Disable noise (inline help also blocks input)
+ completion-show-help nil
+ completion-show-inline-help nil)
+#+end_src
+
+* 推荐包
+:properties:
+:description: Related packages recommended for installation
+:end:
+
+我使用并推荐这个包组合：
+
+- consult: 这个包
+- [[https://github.com/minad/vertico][vertico]]: 快速且最小化的垂直完成系统
+- [[https://github.com/minad/marginalia][marginalia]]: 候选项的注释
+- [[https://github.com/oantolin/embark][embark and embark-consult]]: 可以在候选项上操作的动作命令
+- [[https://github.com/oantolin/orderless][orderless]]: 提供灵活候选项过滤的完成样式
+- [[https://github.com/mhayashi1120/Emacs-wgrep][wgrep]] （或 Emacs 31 上的 =grep-edit-mode= ）: Grep 缓冲区的编辑。通过 =embark-export= 与 =consult-grep= 一起使用。
+
+除了 Vertico 之外，还有多种优秀的完成 UI，Consult 都支持。试试它们，
+找出哪种交互模型最适合你。
+
+- 内置完成 UI，弹出 =*Completions*= 缓冲区。
+- 内置 =icomplete-vertical-mode=。
+- [[https://git.sr.ht/~protesilaos/mct][mct by Protesilaos Stavrou]]: Minibuffer and Completions in Tandem，构建在默认完成 UI 之上。
+
+注意所有包都是独立的，可以与替代组件交换，因为不存在硬依赖。此外，可以仅使用
+默认完成和 Consult 开始，然后稍后向组合中添加更多组件。例如，如果你不需要
+注释，可以省略 Marginalia。我强烈推荐 Embark 包，但为了熟悉其他组件，你可以
+先不使用它开始——或者你可以立即使用 Embark 并稍后添加其他组件。
+
+我们在 Consult wiki 中记录了[[https://github.com/minad/consult/wiki/Auxiliary-packages][辅助包列表]]。这些包将 Consult 与特殊程序或更广泛的 Emacs 生态系统中的其他包集成。
+
+* 配置
+:properties:
+:description: 示例配置和自定义变量
+:end:
+
+Consult 可以通过 Emacs 内置的包管理器从 [[https://elpa.gnu.org/packages/consult.html][ELPA]] 或 [[https://melpa.org/#/consult][MELPA]] 安装。或者，也可以通过其他非标准包管理器直接从开发仓库安装。
+
+[[https://github.com/minad/consult/wiki][Consult wiki]] 上可以贡献额外的配置示例。
+
+*重要提示:* 建议你在配置中启用词法绑定。许多与 Consult 相关的代码片段需要词法绑定，因为它们使用 lambda 和闭包。
+
+** Use-package 示例
+:properties:
+:description: 基于 use-package 的配置示例
+:custom_id: use-package-example
+:end:
+#+cindex: use-package
+
+Consult 包只提供命令，不添加任何键绑定或模式。因此，该包是非侵入式的，但需要一些设置工作。虽然配置示例很长，但它主要由键绑定组成，这样与其他 Emacs 功能冲突的风险最小。
+
+为了使用 Consult 命令，建议为经常访问的命令添加键绑定。很少使用的命令可以通过 =M-x= 调用。请随意只绑定你认为对你的工作流程有用的命令。这里显示的配置依赖于 =use-package= 宏，这是一个方便的工具，用于管理包配置。
+
+*注意:* 有一个 [[https://github.com/minad/consult/wiki][Consult wiki]]，你可以在那里贡献额外的配置示例。
+
+#+begin_src emacs-lisp
+;; Consult 的示例配置
+(use-package consult
+  ;; 替换绑定。由 `use-package' 懒加载。
+  :bind (;; `mode-specific-map' 中的 C-c 绑定
+         ("C-c M-x" . consult-mode-command)
+         ("C-c h" . consult-history)
+         ("C-c k" . consult-kmacro)
+         ("C-c m" . consult-man)
+         ("C-c i" . consult-info)
+         ([remap Info-search] . consult-info)
+         ;; `ctl-x-map' 中的 C-x 绑定
+         ("C-x M-:" . consult-complex-command)     ;; 原 repeat-complex-command
+         ("C-x b" . consult-buffer)                ;; 原 switch-to-buffer
+         ("C-x 4 b" . consult-buffer-other-window) ;; 原 switch-to-buffer-other-window
+         ("C-x 5 b" . consult-buffer-other-frame)  ;; 原 switch-to-buffer-other-frame
+         ("C-x t b" . consult-buffer-other-tab)    ;; 原 switch-to-buffer-other-tab
+         ("C-x r b" . consult-bookmark)            ;; 原 bookmark-jump
+         ("C-x p b" . consult-project-buffer)      ;; 原 project-switch-to-buffer
+         ;; 用于快速寄存器访问的自定义 M-# 绑定
+         ("M-#" . consult-register-load)
+         ("M-'" . consult-register-store)          ;; 原 abbrev-prefix-mark（无关）
+         ("C-M-#" . consult-register)
+         ;; 其他自定义绑定
+         ("M-y" . consult-yank-pop)                ;; 原 yank-pop
+         ;; `goto-map' 中的 M-g 绑定
+         ("M-g e" . consult-compile-error)
+         ("M-g r" . consult-grep-match)
+         ("M-g f" . consult-flymake)               ;; 替代方案: consult-flycheck
+         ("M-g g" . consult-goto-line)             ;; 原 goto-line
+         ("M-g M-g" . consult-goto-line)           ;; 原 goto-line
+         ("M-g o" . consult-outline)               ;; 替代方案: consult-org-heading
+         ("M-g m" . consult-mark)
+         ("M-g k" . consult-global-mark)
+         ("M-g i" . consult-imenu)
+         ("M-g I" . consult-imenu-multi)
+         ;; `search-map' 中的 M-s 绑定
+         ("M-s d" . consult-find)                  ;; 替代方案: consult-fd
+         ("M-s c" . consult-locate)
+         ("M-s g" . consult-grep)
+         ("M-s G" . consult-git-grep)
+         ("M-s r" . consult-ripgrep)
+         ("M-s l" . consult-line)
+         ("M-s L" . consult-line-multi)
+         ("M-s k" . consult-keep-lines)
+         ("M-s u" . consult-focus-lines)
+         ;; Isearch 集成
+         ("M-s e" . consult-isearch-history)
+         :map isearch-mode-map
+         ("M-e" . consult-isearch-history)         ;; 原 isearch-edit-string
+         ("M-s e" . consult-isearch-history)       ;; 原 isearch-edit-string
+         ("M-s l" . consult-line)                  ;; consult-line 需要检测 isearch
+         ("M-s L" . consult-line-multi)            ;; consult-line 需要检测 isearch
+         ;; Minibuffer 历史
+         :map minibuffer-local-map
+         ("M-s" . consult-history)                 ;; 原 next-matching-history-element
+         ("M-r" . consult-history))                ;; 原 previous-matching-history-element
+
+  ;; :init 配置始终执行（不懒加载）
+  :init
+
+  ;; 为 `consult-register-load'、`consult-register-store' 和内置命令调整寄存器预览。
+  ;; 这改进了寄存器格式化，添加了细分隔线，寄存器排序并隐藏窗口模式行。
+  (advice-add #'register-preview :override #'consult-register-window)
+  (setq register-preview-delay 0.5)
+
+  ;; 使用 Consult 选择 xref 位置并预览
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
+
+  ;; 在 :config 部分配置其他变量和模式，在懒加载包之后。
+  :config
+
+  ;; 可选地配置预览。默认值是 'any，这样任何键都会触发预览。
+  ;; (setq consult-preview-key 'any)
+  ;; (setq consult-preview-key "M-.")
+  ;; (setq consult-preview-key '("S-<down>" "S-<up>"))
+  ;; 对于某些命令和缓冲区源，使用 `consult-customize' 宏在每个命令的基础上配置 :preview-key 是有用的。
+  (consult-customize
+   consult-theme :preview-key '(:debounce 0.2 any)
+   consult-ripgrep consult-git-grep consult-grep consult-man
+   consult-bookmark consult-recent-file consult-xref
+   consult-source-bookmark consult-source-file-register
+   consult-source-recent-file consult-source-project-recent-file
+   ;; :preview-key "M-."
+   :preview-key '(:debounce 0.4 any))
+
+  ;; 可选地配置缩小键。< 和 C-+ 都能很好地工作。
+  (setq consult-narrow-key "<") ;; "C-+"
+
+  ;; 可选地在 minibuffer 中提供缩小帮助。
+  ;; 你可能想要使用 `embark-prefix-help-command' 或 which-key 代替。
+  ;; (keymap-set consult-narrow-map (concat consult-narrow-key " ?") #'consult-narrow-help)
+)
+#+end_src
+
+** 自定义变量
+:properties:
+:description: 所有自定义设置的简短描述
+:end:
+#+cindex: customization
+
+*提示:* 如果你安装了 [[https://github.com/minad/marginalia][Marginalia]]，输入 =M-x customize-variable RET ^consult= 可以查看所有 Consult 特定的可自定义变量及其当前值和缩写描述。或者，输入 =C-h a ^consult= 可以概览所有 Consult 变量和函数及其描述。
+
+| 变量                               | 描述                                         |
+|----------------------------------+--------------------------------------------|
+| consult-after-jump-hook          | 跳转到位置后调用的函数                               |
+| consult-async-input-debounce     | 异步命令的输入防抖                                  |
+| consult-async-input-throttle     | 异步命令的输入节流                                  |
+| consult-async-min-input          | 最小输入字符数                                    |
+| consult-async-refresh-delay      | 异步命令的刷新延迟                                  |
+| consult-async-split-style        | 异步命令使用的分割样式                                |
+| consult-async-split-styles-alist | 异步命令可用的分割样式                                |
+| consult-async-indicator          | 异步指示字符                                     |
+| consult-bookmark-narrow          | =consult-bookmark= 的缩小配置                       |
+| consult-buffer-filter            | =consult-buffer= 的过滤器                          |
+| consult-buffer-list-function     | 检索缓冲区列表的函数                                 |
+| consult-buffer-sources           | 虚拟缓冲区源列表                                   |
+| consult-fd-args                  | fd 的命令行参数                                 |
+| consult-find-args                | find 的命令行参数                               |
+| consult-fontify-max-size         | 超过此限制的缓冲区不进行字体化                            |
+| consult-fontify-preserve         | 为基于行的命令保留字体化。                             |
+| consult-git-grep-args            | git-grep 的命令行参数                            |
+| consult-goto-line-numbers        | 为 =consult-goto-line= 显示行号                       |
+| consult-grep-max-columns         | 匹配行的最大列数                                   |
+| consult-grep-args                | grep 的命令行参数                                |
+| consult-imenu-config             | =consult-imenu= 的特定模式配置                        |
+| consult-line-numbers-widen       | 当缩小激活时显示绝对行号                               |
+| consult-line-start-from-top      | 从顶部开始 =consult-line= 搜索                         |
+| consult-locate-args              | locate 的命令行参数                               |
+| consult-man-args                 | man 的命令行参数                                |
+| consult-mode-command-filter      | =consult-mode-command= 的过滤器                        |
+| consult-mode-histories           | 特定模式的历史变量                                  |
+| consult-narrow-key               | 完成期间的缩小前缀键                                 |
+| consult-point-placement          | 跳转到匹配项时点的位置                                |
+| consult-preview-key              | 触发预览的键                                     |
+| consult-preview-allowed-hooks    | 预览期间允许的钩子列表                                |
+| consult-preview-excluded-buffers | 排除预览的缓冲区谓词                                 |
+| consult-preview-excluded-files   | 预览期间与文件名匹配的正则表达式                           |
+| consult-preview-max-count        | 预览期间保持打开的最大文件数                             |
+| consult-preview-partial-size     | 超过此大小的文件将被部分预览                              |
+| consult-preview-partial-chunk    | 预览的文件块大小                                   |
+| consult-preview-variables        | 预览期间要绑定的变量列表                               |
+| consult-project-buffer-sources   | 虚拟项目缓冲区源列表                                 |
+| consult-project-function         | 返回当前项目根目录的函数                               |
+| consult-register-prefix          | 完成期间寄存器键的前缀字符串                              |
+| consult-ripgrep-args             | ripgrep 的命令行参数                               |
+| consult-themes                   | 呈现给用户选择的主题列表                               |
+| consult-widen-key                | 完成期间的扩大键                                   |
+
+** 项目支持
+:properties:
+:description: Project discovery support for search commands
+:custom_id: project-support
+:end:
+
+像 =consult-grep= 这样的多个 Consult 搜索命令会尝试发现当前项目，如果找到项目，则默认在项目顶层目录中搜索。否则，它们会回退到 =default-directory=。默认情况下，Consult 使用 Emacs 内置的项目发现支持（=project-current= 和 =project-root=）。可以通过自定义变量 =consult-project-function= 配置替代方法。
+
+#+begin_src emacs-lisp
+;; 可选地配置不同的项目根目录函数。
+;; 1. project.el（默认）
+(setq consult-project-function #'consult--default-project--function)
+;; 2. vc.el（vc-root-dir）
+(setq consult-project-function (lambda (_) (vc-root-dir)))
+;; 3. locate-dominating-file
+(setq consult-project-function (lambda (_) (locate-dominating-file "." ".git")))
+;; 4. projectile.el（projectile-project-root）
+(autoload 'projectile-project-root "projectile")
+(setq consult-project-function (lambda (_) (projectile-project-root)))
+;; 5. 禁用项目支持
+(setq consult-project-function nil)
+#+end_src
+
+** 单个命令的微调
+:properties:
+:alt_title: Fine-tuning
+:description: Fine-grained configuration for special requirements
+:end:
+
+*注意:* Consult 支持对单个命令进行细粒度的自定义。此配置功能面向有特殊需求的有经验用户。在 [[https://github.com/minad/consult/wiki][Consult wiki]] 上，我们收集了更多配置示例。
+
+命令和缓冲区源允许通过使用 =consult-customize= 宏进行灵活的、个性化的自定义。你可以覆盖传递给内部 =consult--read= API 的任何选项。注意，由于 =consult--read= 是内部 API 的一部分，选项可能在包的未来版本中被移除、替换或重命名。
+
+有用的选项有：
+- =:prompt= 设置提示字符串
+- =:preview-key= 设置预览键，默认为 =consult-preview-key=
+- =:initial= 设置初始输入
+- =:initial-narrow= 设置初始缩小键
+- =:default= 设置默认值
+- =:history= 设置历史变量符号
+- =:add-history= 添加项目到未来历史，例如光标处的符号
+- =:sort= 启用或禁用排序
+- =:group= 设置为 nil 以禁用候选者分组和标题。
+- =:inherit-input-method= 设置为非 nil 以继承输入方法。
+
+#+begin_src emacs-lisp
+(consult-customize
+ ;; 完全禁用 `consult-theme' 的预览。
+ consult-theme :preview-key nil
+ ;; 为 `consult-buffer' 设置预览键为 `M-.'
+ consult-buffer :preview-key "M-."
+ ;; 对于 `consult-line'，更改提示并指定多个预览键绑定。
+ ;; 注意，你应该在 `minibuffer-local-completion-map' 或 `vertico-map' 中将 <S-up> 和 <S-down> 
+ ;; 绑定到选择前一个或下一个候选者的命令。
+ consult-line :prompt "Search: "
+ :preview-key '("S-<down>" "S-<up>"))
+#+end_src
+
+配置值在运行时评估，就在完成会话开始之前。因此，你可以使用例如 =thing-at-point= 来调整初始输入或未来历史。
+
+#+begin_src emacs-lisp
+(consult-customize
+ consult-line
+ :add-history (seq-some #'thing-at-point '(region symbol)))
+
+(defalias 'consult-line-thing-at-point 'consult-line)
+
+(consult-customize
+ consult-line-thing-at-point
+ :initial (thing-at-point 'symbol))
+#+end_src
+
+通常，可以通过以下技术修改命令以满足你的个人需求：
+
+1. 使用 =consult-customize= 来更改命令或源设置。
+2. 创建自己的包装函数，将修改后的参数传递给 Consult 函数。
+3. 为 =consult-buffer= 创建自己的缓冲区 [[#multiple-sources][多源]]。
+4. 创建建议来修改某些内部行为。
+5. 编写或提议补丁。
+
+* Bug 报告
+:properties:
+:description: How to create reproducible bug reports
+:end:
+
+如果你发现 Bug 或怀疑 Consult 存在问题，请执行以下步骤：
+
+1. *搜索问题跟踪器* 如果你的问题之前已报告（并最终得到解决）。
+2. *从安装中删除涉及可疑 Bug 的所有包。*
+3. *重新安装所有相关包的新版本*。仅更新是不够的，因为 package.el 有时会导致
+   误编译。包列表包括 Consult、Compat、Vertico 或其他完成 UI、
+   Marginalia、Embark 和 Orderless。
+4. 要么使用默认完成 UI，要么确保只启用 =vertico-mode= 、 =mct-mode= 或 =icomplete-mode= 之一。
+   必须禁用不支持的模式 =selectrum-mode= 、 =ivy-mode= 、 =helm-mode= 、 =ido-mode= 和 =ido-ubiquitous-mode= 。
+5. 确保 =completion-styles= 变量配置正确。尝试将 =completion-styles= 设置为包含
+   =substring= 或 =orderless= 的列表。
+6. 尝试使用最新的稳定 Emacs 版本重现问题。使用 =emacs -Q= 在命令行启动一个
+   基本的 Emacs 实例。在 scratch 缓冲区中执行以下最小代码片段。这样我们可以
+   排除由于配置设置产生的副作用。如果其他包与重现问题相关，请在最小配置片段中包含它们。
+
+使用 Vertico 的 =emacs -Q= 最小设置：
+
+#+begin_src emacs-lisp
+  (package-initialize)
+  (require 'consult)
+  (require 'vertico)
+  (vertico-mode)
+  (setq completion-styles '(substring basic))
+#+end_src
+
+使用默认完成系统的 =emacs -Q= 最小设置：
+
+#+begin_src emacs-lisp
+  (package-initialize)
+  (require 'consult)
+  (setq completion-styles '(substring basic))
+#+end_src
+
+请在 Bug 报告中提供必要的重要信息：
+
+- 用于重现问题的最小配置片段。
+- 你的完成 UI（默认完成、Vertico、Mct 或 Icomplete）。
+- 如果 Bug 触发异常时的堆栈跟踪。
+- 你的 Emacs 版本，因为 Bug 可能在较新版本中修复或引入。
+- 你的操作系统，因为 Emacs 行为在 Linux、Mac 和 Windows 之间有细微差别。
+- 包管理器，例如 straight.el 或 package.el，用于安装 Emacs 包，以排除更新问题。你是否将 Consult 安装为 Doom Emacs 发行版的一部分？
+- 你使用 Evil 吗？Consult 不是开箱即用地提供 Evil 集成，但在 [[https://github.com/emacs-evil/evil-collection][evil-collection]] 中有一些支持。
+
+在评估 Consult 相关代码片段时，你应该启用词法绑定。Consult 依赖于 lambdas 和词法闭包。
+
+* 黑客技术
+** 创建简单命令
+
+在创建简单命令时，你可以使用 =consult--read= 或直接依赖内置的 =completing-read= 函数。
+=consult--read= 在 =completing-read= 之上提供了更好、更有特色的 API。你可以直接指定完成候选者。
+
+#+begin_src emacs-lisp
+  (consult--read
+   '("String A"
+     "String B"
+     "String C")
+   :sort nil
+   :prompt "Select: ")
+#+end_src
+
+如果你传递一个 =(completion-string . value)= 的 alist，你可以查找值。
+
+#+begin_src emacs-lisp
+  (consult--read
+   '(("String A" . value-a)
+     ("String B" . value-b)
+     ("String C" . value-c))
+   :prompt "Select: "
+   :sort nil
+   :lookup #'consult--lookup-cdr)
+#+end_src
+
+你可以将结果添加为文本属性。
+
+#+begin_src emacs-lisp
+  (consult--read
+   (list
+    (propertize "String A" 'consult--candidate 'value-a)
+    (propertize "String B" 'consult--candidate 'value-b)
+    (propertize "String C" 'consult--candidate 'value-c))
+   :prompt "Select: "
+   :sort nil
+   :lookup #'consult--lookup-candidate)
+#+end_src
+
+你可以添加其他文本属性。
+
+#+begin_src emacs-lisp
+  (consult--read
+   (mapcar (lambda (value)
+             (propertize
+              (format "%s %s"
+                      (propertize "Option" 'face 'font-lock-comment-face)
+                      value)
+              'consult--candidate value))
+           '("A" "B" "C"))
+   :prompt "Select: "
+   :sort nil
+   :lookup #'consult--lookup-candidate)
+#+end_src
+
+** 创建异步完成命令
+
+如果你有一个既动态又昂贵的完成源， =completing-read= 可能不是最佳选择。相反， =consult--read= 用作 =completing-read= 的薄包装器，提供此功能。例如，考虑以下在空格上拆分输入的慢脚本：
+
+#+begin_src sh
+  #!/usr/bin/env bash
+  # simulate work
+  sleep .1
+  # generate completion candidates
+  printf "%s\n" "$*" | tr " " "\n" | sort
+#+end_src
+
+假设此脚本可调用为 =testibus hello world= 。要让 Consult 将其用于完成，使用 =consult--process-collection= ：
+
+#+begin_src emacs-lisp
+  (consult--read
+   (consult--process-collection
+    (lambda (input) (list "testibus" (string-trim input))))
+   :prompt "run testibus: ")
+#+end_src
+
+如果完成候选者由 Lisp 生成，使用 =consult--dynamic-collection= ：
+
+#+begin_src emacs-lisp
+  (consult--read
+   (consult--dynamic-collection
+    (lambda (input)
+      (sleep-for 0.1) ;; Simulate work
+      (split-string input nil t)))
+   :prompt "run testibus: ")
+#+end_src
+
+=consult--dynamic-collection= 可以接受带有回调的函数，以便完成 UI 可以为长时间运行的计算更新。
+
+#+begin_src emacs-lisp
+  (consult--read
+   (consult--dynamic-collection
+    (lambda (input callback)
+      (dotimes (i 3)
+        (sleep-for 0.1) ;; Simulate work
+        (funcall callback (mapcar (lambda (s) (format "%s%s" s i))
+                                  (split-string input nil t))))))
+   :prompt "run testibus: ")
+#+end_src
+
+异步完成集合 =consult--dynamic-collection= 和 =consult--process-collection= 可以用于
+=consult--multi= 源。将它们指定为源 plist 的 =:async= 字段。
+
+** 实时预览
+
+实现实时预览需要定义由 =consult--with-preview= 定义的状态或预览函数。预览函数接收候选者和要执行的一些动作（例如 ='preview=）。在最简单形式的实时预览中，它看起来像这样：
+
+#+begin_src emacs-lisp
+  (defun testibus--preview (action cand)
+    (pcase action
+      ('preview
+       (with-current-buffer-window " *testibus*" 'action nil
+         (erase-buffer)
+         (insert (format "input: %s\n" cand))))))
+#+end_src
+
+有关动作参数的生命周期，请参阅 =consult--with-preview= 的文档字符串。定义后，我们可以在 =consult--read= 中使用此预览函数：
+
+#+begin_src emacs-lisp
+  (consult--read
+   (consult--dynamic-collection
+    (lambda (input callback)
+      (dotimes (i 3)
+        (sleep-for 0.1) ;; Simulate work
+        (funcall callback (mapcar (lambda (s) (format "%s%s" s i))
+                                  (split-string input nil t))))))
+   :prompt "run testibus: "
+   :state #'testibus--preview)
+#+end_src
+
+* 贡献
+:properties:
+:description: Feature requests and pull requests
+:end:
+
+Consult 是一个社区努力，请参与讨论。欢迎贡献，但你可以先讨论潜在贡献。
+由于此包是 [[https://elpa.gnu.org/packages/consult.html][GNU ELPA]] 的一部分，贡献需要向 FSF 分配版权。
+
+如果你有提案，请查看 [[https://github.com/minad/consult/issues][Consult issue tracker]] 和 [[https://github.com/minad/consult/issues/6][Consult wishlist]]。已经有许多之前的功能讨论。
+请在 issue tracker 中搜索，你的问题或功能请求可能已经被讨论过了。
+如果你想分享小的配置或命令片段，你可以为 [[https://github.com/minad/consult/wiki][Consult wiki]] 做出贡献。
+
+* 致谢
+:properties:
+:description: Contributors and Sources of Inspiration
+:end:
+
+这个包从 Oleh Krehel 的 [[https://github.com/abo-abo/swiper#counsel][Counsel]] 中获得灵感。一些 Consult 命令起源于 Counsel 包或 Selectrum 包的 wiki。
+这个包的存在要归功于这些伟大的贡献者的帮助以及许多用户的反馈。谢谢！
+
+代码贡献者：[[https://github.com/aagon][Aymeric Agon-Rambosson]]、[[https://github.com/amosbird][Amos Bird]]、[[https://github.com/ashton314][Ashton Wiersdorf]]、[[https://github.com/aspiers][Adam
+Spiers]]、[[https://github.com/astoff][Augusto Stoffel]]、[[https://github.com/clemera][Clemens Radermacher]]、[[https://github.com/fuzy112][Zhengyi]]、[[https://github.com/geolessel][Geoffrey Lessel]]、[[https://github.com/iostapyshyn][Illia
+Ostapyshyn]]、[[https://github.com/jakanakaevangeli][jakanakaevangeli]]、[[https://github.com/jdtsmith][JD Smith]]、[[https://github.com/jyp][Jean-Philippe Bernardy]]、[[https://github.com/mattiasdrp][mattiasdrp]]、
+[[https://github.com/mohamed-abdelnour][Mohamed Abdelnour]]、[[https://github.com/mohkale][Mohsin Kaleem]]、[[https://github.com/noctuid][Fox Kiester]]、[[https://github.com/oantolin][Omar Antolín Camarena]]、[[https://github.com/okamsn][Earl
+Hyatt]]、[[https://github.com/omar-polo][Omar Polo]]、[[https://github.com/piotrkwiecinski][Piotr Kwiecinski]]、[[https://github.com/rswgnu][Robert Weiner]]、[[https://github.com/s-kostyaev][Sergey Kostyaev]]、[[https://github.com/scvalex][Alexandru
+Scvorțov]]、[[https://github.com/tecosaur][Tecosaur]]、[[https://github.com/thisirs][Sylvain Rousseau]]、[[https://github.com/tomfitzhenry][Tom Fitzhenry]]、[[https://hg.serna.eu][Iñigo Serna]] 和 [[https://github.com/akreisher][Alex Kreisher]]。
+
+建议和有用的讨论：[[https://github.com/Qkessler][Enrique Kessler Martínez]]、[[https://github.com/alphapapa][Adam Porter]]、[[https://github.com/bdarcus][Bruce
+d'Arcus]]、[[https://github.com/clemera][Clemens Radermacher]]、[[https://github.com/dgutov][Dmitry Gutov]]、[[https://github.com/hmelman][Howard Melman]]、[[https://github.com/iyefrat][Itai Y. Efrat]]、[[https://github.com/jdtsmith][JD
+Smith]]、[[https://github.com/manuel-uberti][Manuel Uberti]]、[[https://github.com/monnier][Stefan Monnier]]、[[https://github.com/oantolin][Omar Antolín Camarena]]、[[https://github.com/purcell][Steve Purcell]]、
+[[https://github.com/raxod502][Radon Rosborough]]、[[https://github.com/tomfitzhenry][Tom Fitzhenry]] 和 [[https://protesilaos.com][Protesilaos Stavrou]]。
+
+
+
+#+html: <!--
+
+* Indices
+:properties:
+:description: Indices of concepts and functions
+:end:
+
+** Function index
+:properties:
+:description: List of all Consult commands
+:index:    fn
+:end:
+
+** Concept index
+:properties:
+:description: List of all Consult-specific concepts
+:index:    cp
+:end:
+
+#+html: -->
